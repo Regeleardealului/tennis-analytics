@@ -28,6 +28,3 @@ histogrammos_OK.txt
 
 # --- Adatok szűrése ---
 data/atp_tennis.csv
-
-# Megjegyzés: A "data/cleaned_atp.csv" és az "assets" mappa automatikusan
-# felmegy, mert nincsenek itt tiltva.
