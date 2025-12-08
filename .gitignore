@@ -1,0 +1,33 @@
+# --- Rendszerfájlok és Python cache (ezek sosem kellenek) ---
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.venv
+env/
+venv/
+
+# --- Notebookok kizárása ---
+*.ipynb
+preprocess.ipynb
+process_raw_data.ipynb
+
+# --- Mappák kizárása ---
+safe/
+
+# --- Felesleges Python scriptek kizárása ---
+alfa.py
+daily_atp_pull.py
+perfect.py
+safety.py
+
+# --- Szöveges fájlok kizárása (KIVÉVE a requirements.txt) ---
+*.txt
+!requirements.txt
+histogrammos_OK.txt
+
+# --- Adatok szűrése ---
+data/atp_tennis.csv
+
+# Megjegyzés: A "data/cleaned_atp.csv" és az "assets" mappa automatikusan
+# felmegy, mert nincsenek itt tiltva.
