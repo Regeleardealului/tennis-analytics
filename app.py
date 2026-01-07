@@ -8,28 +8,24 @@ from datetime import timedelta
 import numpy as np
 import plotly.graph_objects as go
 
-# --- 1. Load and Prepare Your Data ---
+
 try:
     print("Fetching the data...")
     df = pd.read_csv("data/cleaned_atp.csv")
 except FileNotFoundError:
     print("Error: data source not found. Please ensure the file path you provided is correct.")
-    # Create a dummy dataframe to allow the app to run
     df = pd.DataFrame(columns=[
         'Date', 'Player_1', 'Player_2', 'Winner', 'Odd_1', 'Odd_2', 'Surface',
         'Series', 'Court', 'Round', 'Total_sets_needed', 'Score',
         'Break_pts_1', 'Break_pts_2', 'Tournament'
     ])
 
-# Ensure 'Date' is a datetime object
 df['Date'] = pd.to_datetime(df['Date'])
 df['Year'] = df['Date'].dt.year
 
-# --- Prepare data for Winner Odds visualization ---
 for col in ['Odd_1', 'Odd_2']:
     df[col] = pd.to_numeric(df[col], errors='coerce')
 
-# --- Adatok intelligens pótlása (Random Odds) ---
 valid_odds_1 = df[df['Odd_1'] > 0]['Odd_1']
 valid_odds_2 = df[df['Odd_2'] > 0]['Odd_2']
 
@@ -63,7 +59,6 @@ df_odds['Winner_Odd'] = df_odds.apply(get_winner_odd, axis=1)
 df_odds.dropna(subset=['Winner_Odd'], inplace=True)
 df_odds['Bet_Type'] = df_odds['Winner_Odd'].apply(lambda x: 'Underdog (Odds > 2.0)' if x > 2.0 else 'Favorite (Odds <= 2.0)')
 
-# Get unique players and years for dropdowns
 all_players_series = pd.concat([df['Player_1'], df['Player_2']])
 all_players = all_players_series.dropna().astype(str).str.strip().unique()
 all_players.sort()
@@ -72,7 +67,6 @@ player_options = [{'label': player, 'value': player} for player in all_players]
 all_years = sorted(df['Year'].unique())
 year_options = [{'label': str(year), 'value': year} for year in all_years]
 
-# --- 2. Initialize the Dash app ---
 app = dash.Dash(
     __name__,
     external_stylesheets=[
@@ -82,10 +76,8 @@ app = dash.Dash(
     suppress_callback_exceptions=True
 )
 
-# --- FONTOS: Ez kell a Render deployhoz ---
 server = app.server 
 
-# Add custom CSS
 app.index_string = '''
 <!DOCTYPE html>
 <html>
@@ -288,7 +280,6 @@ app.index_string = '''
 </html>
 '''
 
-# --- 3. Define the App Layout ---
 app.layout = html.Div(
     style={
         'background': 'linear-gradient(135deg, #0a0e27 0%, #1a1a2e 50%, #16213e 100%)',
@@ -297,7 +288,6 @@ app.layout = html.Div(
         'overflow': 'hidden'
     },
     children=[
-    # Animated background particles
     html.Div(
         style={
             'position': 'fixed',
@@ -311,7 +301,6 @@ app.layout = html.Div(
         }
     ),
     
-    # FUTURISTIC HEADER
     html.Header(
         style={
             'background': 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
@@ -326,7 +315,6 @@ app.layout = html.Div(
             'zIndex': '10'
         },
         children=[
-            # Animated background effect
             html.Div(
                 style={
                     'position': 'absolute',
@@ -340,7 +328,6 @@ app.layout = html.Div(
                 }
             ),
             
-            # Left Section: Logo + Title
             html.Div(
                 style={
                     'display': 'flex',
@@ -349,7 +336,6 @@ app.layout = html.Div(
                     'zIndex': '1'
                 },
                 children=[
-                    # Logo with glow effect
                     html.Img(
                         src="assets/atp_logo.png",
                         style={
@@ -360,7 +346,6 @@ app.layout = html.Div(
                         }
                     ),
                     
-                    # Futuristic Title
                     html.H1(
                         "PROFESSIONAL MEN TENNIS ANALYTICS",
                         style={
@@ -382,7 +367,6 @@ app.layout = html.Div(
                 ]
             ),
             
-            # Right Section: Source Link
             html.A(
                 href="https://www.kaggle.com/datasets/dissfya/atp-tennis-2000-2023daily-pull",
                 target="_blank",
@@ -419,7 +403,6 @@ app.layout = html.Div(
         ]
     ),
 
-    # Dashboard Body
     html.Div(
         style={
             'maxWidth': '1600px',
@@ -430,7 +413,6 @@ app.layout = html.Div(
         },
         children=[
             
-            # --- EGYESÍTETT FELSŐ SZEKCIÓ (FILTER + DIAGRAMMOK) ---
             html.Div(
                 style={
                     'background': 'rgba(15, 23, 42, 0.7)',
@@ -444,7 +426,6 @@ app.layout = html.Div(
                     'overflow': 'hidden'
                 },
                 children=[
-                    # --- Főcím ---
                     html.Div(
                         className="cyber-title",
                         style={
@@ -469,7 +450,6 @@ app.layout = html.Div(
                             )
                         ]
                     ),
-                    # --- Filter Panel ---
                     html.Div(
                         style={
                             'background': 'rgba(0, 255, 242, 0.05)',
@@ -589,7 +569,6 @@ app.layout = html.Div(
                         ]
                     ),
                     
-                    # --- Diagrammok rácsa ---
                     html.Div(
                         style={
                             'display': 'grid',
@@ -597,7 +576,6 @@ app.layout = html.Div(
                             'gap': '40px',
                         },
                         children=[
-                            # "Series Kings" (Bar Chart)
                             html.Div(
                                 style={
                                     'background': 'rgba(0, 255, 242, 0.03)',
@@ -638,7 +616,6 @@ app.layout = html.Div(
                                 ]
                             ),
                             
-                            # Path to Victory (Sunburst)
                             html.Div(
                                 style={
                                     'background': 'rgba(0, 255, 242, 0.03)',
@@ -683,7 +660,6 @@ app.layout = html.Div(
                 ]
             ),
             
-            # Winners Odds Distribution
             html.Div(
                 style={
                     'background': 'rgba(15, 23, 42, 0.7)',
@@ -772,7 +748,6 @@ app.layout = html.Div(
                 ]
             ),
 
-            # Individual Player Performance
             html.Div(
                 style={
                     'background': 'rgba(15, 23, 42, 0.7)',
@@ -907,7 +882,6 @@ app.layout = html.Div(
                 ]
             ),
 
-            # Head-to-Head Comparison
             html.Div(
                 style={
                     'background': 'rgba(15, 23, 42, 0.7)',
@@ -1016,7 +990,6 @@ app.layout = html.Div(
     )
 ])
 
-# --- 4. Callbacks ---
 @app.callback(
     Output('wins-treemap', 'figure'),
     [Input('surface-slicer', 'value'),
@@ -1046,27 +1019,20 @@ def update_treemap(surfaces, series, courts, start_date, end_date):
             }
         }
         
-    # --- MÓDOSÍTÁS KEZDETE: Horizontális Sávdiagram (Bar Chart) ---
-    
-    # 1. Csoportosítás győztes szerint és számolás
     player_wins = filtered_df['Winner'].value_counts().reset_index()
     player_wins.columns = ['Winner', 'Wins']
-    
-    # 2. TOP 15 játékos kiválasztása és rendezés (növekvő sorrendbe, hogy a diagramon felül legyen a legtöbb)
     player_wins = player_wins.head(15).sort_values('Wins', ascending=True)
     
-    # 3. Bar Chart létrehozása
     fig = px.bar(
         player_wins,
         x='Wins',
         y='Winner',
-        orientation='h',  # Horizontális elrendezés
-        text='Wins',      # Érték kiírása a sávra
-        color='Wins',     # Színezés érték alapján
-        color_continuous_scale='Tealgrn' # Téma szerinti cián/zöldes skála
+        orientation='h', 
+        text='Wins',     
+        color='Wins',    
+        color_continuous_scale='Tealgrn' 
     )
 
-    # 4. Formázás a cyberpunk témához
     fig.update_traces(
         texttemplate='%{text}', 
         textposition='outside',
@@ -1090,10 +1056,9 @@ def update_treemap(surfaces, series, courts, start_date, end_date):
             showgrid=False,
             tickfont=dict(size=11)
         ),
-        coloraxis_showscale=False, # Színskála elrejtése a tisztább kinézetért
+        coloraxis_showscale=False, 
         margin=dict(l=10, r=10, t=10, b=10)
     )
-    # --- MÓDOSÍTÁS VÉGE ---
 
     return fig
 
@@ -1176,7 +1141,7 @@ def update_odds_distribution_histogram(selected_category):
                 size=0.1
             ),
             marker_color=color,
-            opacity=0.8, # MÓDOSÍTVA: 0.8-ra növelve, hogy "stacked" módban ne legyen túl halvány
+            opacity=0.8, 
             marker=dict(
                 line=dict(
                     width=1,
@@ -1193,7 +1158,7 @@ def update_odds_distribution_histogram(selected_category):
         font=dict(color='#ffffff'),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0.1)',
-        barmode='stack', # MÓDOSÍTVA: 'overlay'-ről 'stack'-re, így egymásra épülnek!
+        barmode='stack', 
         bargap=0.05,
         showlegend=True,
         legend=dict(
@@ -1238,12 +1203,7 @@ def update_timeline(player_name, selected_year):
             }
         }
 
-    # --- MÓDOSÍTÁS KEZDETE: Gantt diagram javítása ---
-    # 1. Rendezés dátum szerint, hogy az idővonal logikus legyen
     player_df = player_df.sort_values(by='Date')
-
-    # 2. A tornák kinyerése a helyes időrendben (unique() megőrzi a sorrendet a rendezés után)
-    # FONTOS JAVÍTÁS: Átalakítás listává (.tolist()), mert a Dash JSON szerializálója nem szereti a NumPy tömböt!
     ordered_tournaments = player_df['Tournament'].unique().tolist() 
 
     player_df['Outcome'] = player_df.apply(
@@ -1263,23 +1223,20 @@ def update_timeline(player_name, selected_year):
         color_discrete_map={'Win': '#10b981', 'Loss': '#ef4444'},
         title=f"Tournament Performance of {player_name} in {selected_year}",
         hover_data=['Date', 'Round', 'Score'],
-        # 3. Itt mondjuk meg a Plotly-nak, hogy milyen sorrendben jelenítse meg a tornákat az Y-tengelyen
         category_orders={'Tournament': ordered_tournaments} 
     )
-    # --- MÓDOSÍTÁS VÉGE ---
     
     fig.update_layout(
-        xaxis_title=None, # Címke eltávolítva
-        yaxis_title=None, # Címke eltávolítva
+        xaxis_title=None, 
+        yaxis_title=None, 
         xaxis_type="date",
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0.1)',
         font=dict(color='#ffffff'),
-        height=600, # Magasság növelése a jobb olvashatóságért
-        # --- ÚJ MÓDOSÍTÁS: Y-TENGELY KÉNYSZERÍTÉSE ---
+        height=600, 
         yaxis=dict(
-            dtick=1,        # Ez kényszeríti, hogy minden sorhoz legyen címke (ne rejtse el)
-            automargin=True # Segít, hogy a hosszú nevek ne lógjanak le
+            dtick=1,       
+            automargin=True 
         )
     )
 
