@@ -7,21 +7,14 @@ import dash_bootstrap_components as dbc
 from datetime import timedelta
 import numpy as np
 import plotly.graph_objects as go
-import os
 
 # --- 1. Load and Prepare Your Data ---
-# A Renderen a fájlrendszer relatív útvonalai működnek, ha a GitHub struktúra helyes.
-print("Fetching the data...")
-
-# Biztonságosabb útvonal kezelés
-data_path = os.path.join(os.path.dirname(__file__), "data", "cleaned_atp.csv")
-
 try:
-    df = pd.read_csv(data_path)
-    print("Data loaded successfully.")
+    print("Fetching the data...")
+    df = pd.read_csv("data/cleaned_atp.csv")
 except FileNotFoundError:
-    print(f"Error: data source not found at {data_path}. Creating dummy data.")
-    # Create a dummy dataframe to allow the app to run if CSV is missing
+    print("Error: data source not found. Please ensure the file path you provided is correct.")
+    # Create a dummy dataframe to allow the app to run
     df = pd.DataFrame(columns=[
         'Date', 'Player_1', 'Player_2', 'Winner', 'Odd_1', 'Odd_2', 'Surface',
         'Series', 'Court', 'Round', 'Total_sets_needed', 'Score',
@@ -36,7 +29,6 @@ df['Year'] = df['Date'].dt.year
 for col in ['Odd_1', 'Odd_2']:
     df[col] = pd.to_numeric(df[col], errors='coerce')
 
-# --- Adatok intelligens pótlása (Random Odds) ---
 valid_odds_1 = df[df['Odd_1'] > 0]['Odd_1']
 valid_odds_2 = df[df['Odd_2'] > 0]['Odd_2']
 
@@ -53,9 +45,8 @@ if not valid_odds_1.empty and not valid_odds_2.empty:
     df['Odd_1'] = df['Odd_1'].apply(lambda x: generate_random_odd(x, mean_1, std_1))
     df['Odd_2'] = df['Odd_2'].apply(lambda x: generate_random_odd(x, mean_2, std_2))
 else:
-    if not df.empty:
-        df['Odd_1'] = df['Odd_1'].apply(lambda x: np.random.uniform(1.1, 3.5) if x <= 0 else x)
-        df['Odd_2'] = df['Odd_2'].apply(lambda x: np.random.uniform(1.1, 3.5) if x <= 0 else x)
+    df['Odd_1'] = df['Odd_1'].apply(lambda x: np.random.uniform(1.1, 3.5) if x <= 0 else x)
+    df['Odd_2'] = df['Odd_2'].apply(lambda x: np.random.uniform(1.1, 3.5) if x <= 0 else x)
 
 df_odds = df.dropna(subset=['Odd_1', 'Odd_2']).copy()
 df_odds = df_odds[(df_odds['Odd_1'] > 1.0) & (df_odds['Odd_2'] > 1.0)]
@@ -67,26 +58,18 @@ def get_winner_odd(row):
         return row['Odd_2']
     return np.nan
 
-if not df_odds.empty:
-    df_odds['Winner_Odd'] = df_odds.apply(get_winner_odd, axis=1)
-    df_odds.dropna(subset=['Winner_Odd'], inplace=True)
-    df_odds['Bet_Type'] = df_odds['Winner_Odd'].apply(lambda x: 'Underdog (Odds > 2.0)' if x > 2.0 else 'Favorite (Odds <= 2.0)')
-else:
-    df_odds['Winner_Odd'] = []
-    df_odds['Bet_Type'] = []
+df_odds['Winner_Odd'] = df_odds.apply(get_winner_odd, axis=1)
+df_odds.dropna(subset=['Winner_Odd'], inplace=True)
+df_odds['Bet_Type'] = df_odds['Winner_Odd'].apply(lambda x: 'Underdog (Odds > 2.0)' if x > 2.0 else 'Favorite (Odds <= 2.0)')
 
 # Get unique players and years for dropdowns
-if not df.empty:
-    all_players_series = pd.concat([df['Player_1'], df['Player_2']])
-    all_players = all_players_series.dropna().astype(str).str.strip().unique()
-    all_players.sort()
-    all_years = sorted(df['Year'].dropna().unique())
-else:
-    all_players = []
-    all_years = []
-
+all_players_series = pd.concat([df['Player_1'], df['Player_2']])
+all_players = all_players_series.dropna().astype(str).str.strip().unique()
+all_players.sort()
 player_options = [{'label': player, 'value': player} for player in all_players]
-year_options = [{'label': str(int(year)), 'value': int(year)} for year in all_years]
+
+all_years = sorted(df['Year'].unique())
+year_options = [{'label': str(year), 'value': year} for year in all_years]
 
 # --- 2. Initialize the Dash app ---
 app = dash.Dash(
@@ -98,7 +81,6 @@ app = dash.Dash(
     suppress_callback_exceptions=True
 )
 
-# --- FONTOS: Ez kell a Rendernek (Gunicorn server hook) ---
 server = app.server 
 
 # Add custom CSS
@@ -400,7 +382,7 @@ app.layout = html.Div(
             
             # Right Section: Source Link
             html.A(
-                href="https://rapidapi.com/odds-papi-odds-papi-default/api/bet36528/playground/apiendpoint_d514e2cd-ea80-49d2-b014-edfc76e75346",
+                href="https://www.kaggle.com/datasets/dissfya/atp-tennis-2000-2023daily-pull",
                 target="_blank",
                 className="source-icon",
                 style={
@@ -521,8 +503,8 @@ app.layout = html.Div(
                                         ),
                                         dcc.Dropdown(
                                             id='surface-slicer',
-                                            options=[{'label': f"🏟️ {i}", 'value': i} for i in (df['Surface'].unique() if not df.empty else [])],
-                                            value=(df['Surface'].unique().tolist() if not df.empty else []),
+                                            options=[{'label': f"🏟️ {i}", 'value': i} for i in df['Surface'].unique()],
+                                            value=df['Surface'].unique().tolist(),
                                             multi=True,
                                             placeholder="Choose surfaces...",
                                             style={'fontSize': '14px', 'fontWeight': '500'}
@@ -544,7 +526,7 @@ app.layout = html.Div(
                                         ),
                                         dcc.Dropdown(
                                             id='series-slicer',
-                                            options=[{'label': f"🎪 {i}", 'value': i} for i in (df['Series'].unique() if not df.empty else [])],
+                                            options=[{'label': f"🎪 {i}", 'value': i} for i in df['Series'].unique()],
                                             value=['International'],
                                             multi=True,
                                             placeholder="Choose series...",
@@ -567,8 +549,8 @@ app.layout = html.Div(
                                         ),
                                         dcc.Dropdown(
                                             id='court-slicer',
-                                            options=[{'label': f"📍 {i}", 'value': i} for i in (df['Court'].unique() if not df.empty else [])],
-                                            value=(df['Court'].unique().tolist() if not df.empty else []),
+                                            options=[{'label': f"📍 {i}", 'value': i} for i in df['Court'].unique()],
+                                            value=df['Court'].unique().tolist(),
                                             multi=True,
                                             placeholder="Choose court types...",
                                             style={'fontSize': '14px', 'fontWeight': '500'}
@@ -590,10 +572,10 @@ app.layout = html.Div(
                                         ),
                                         dcc.DatePickerRange(
                                             id='date-range-slicer',
-                                            min_date_allowed=df['Date'].min() if not df.empty else None,
-                                            max_date_allowed=df['Date'].max() if not df.empty else None,
-                                            start_date=df['Date'].min() if not df.empty else None,
-                                            end_date=df['Date'].max() if not df.empty else None,
+                                            min_date_allowed=df['Date'].min(),
+                                            max_date_allowed=df['Date'].max(),
+                                            start_date=df['Date'].min(),
+                                            end_date=df['Date'].max(),
                                             display_format='DD/MM/YYYY',
                                             start_date_placeholder_text="Start",
                                             end_date_placeholder_text="End",
@@ -859,7 +841,7 @@ app.layout = html.Div(
                                         dcc.Dropdown(
                                             id='player-slicer',
                                             options=player_options,
-                                            value='Nadal R.' if 'Nadal R.' in all_players else (all_players[0] if len(all_players) > 0 else None),
+                                            value='Nadal R.',
                                             placeholder="Choose a player...",
                                             style={'fontSize': '14px', 'fontWeight': '500'}
                                         ),
@@ -881,7 +863,7 @@ app.layout = html.Div(
                                         dcc.Dropdown(
                                             id='year-slicer',
                                             options=year_options,
-                                            value=2015 if 2015 in all_years else (all_years[-1] if len(all_years) > 0 else None),
+                                            value=2015,
                                             placeholder="Choose a year...",
                                             style={'fontSize': '14px', 'fontWeight': '500'}
                                         ),
@@ -993,7 +975,7 @@ app.layout = html.Div(
                                         dcc.Dropdown(
                                             id='player1-slicer',
                                             options=player_options,
-                                            value='Federer R.' if 'Federer R.' in all_players else (all_players[0] if len(all_players) > 0 else None),
+                                            value='Federer R.',
                                             placeholder="Choose first player...",
                                             style={'fontSize': '14px', 'fontWeight': '500'}
                                         ),
@@ -1015,7 +997,7 @@ app.layout = html.Div(
                                         dcc.Dropdown(
                                             id='player2-slicer',
                                             options=player_options,
-                                            value='Nadal R.' if 'Nadal R.' in all_players else (all_players[1] if len(all_players) > 1 else None),
+                                            value='Nadal R.',
                                             placeholder="Choose second player...",
                                             style={'fontSize': '14px', 'fontWeight': '500'}
                                         ),
@@ -1061,14 +1043,12 @@ def update_treemap(surfaces, series, courts, start_date, end_date):
                 'font': {'color': '#ffffff'}
             }
         }
-        
-    # --- MÓDOSÍTÁS KEZDETE: Horizontális Sávdiagram (Bar Chart) ---
     
     # 1. Csoportosítás győztes szerint és számolás
     player_wins = filtered_df['Winner'].value_counts().reset_index()
     player_wins.columns = ['Winner', 'Wins']
     
-    # 2. TOP 15 játékos kiválasztása és rendezés (növekvő sorrendbe, hogy a diagramon felül legyen a legtöbb)
+    # 2. TOP 15 player
     player_wins = player_wins.head(15).sort_values('Wins', ascending=True)
     
     # 3. Bar Chart létrehozása
@@ -1076,10 +1056,10 @@ def update_treemap(surfaces, series, courts, start_date, end_date):
         player_wins,
         x='Wins',
         y='Winner',
-        orientation='h',  # Horizontális elrendezés
-        text='Wins',      # Érték kiírása a sávra
-        color='Wins',     # Színezés érték alapján
-        color_continuous_scale='Tealgrn' # Téma szerinti cián/zöldes skála
+        orientation='h',  
+        text='Wins',     
+        color='Wins',     
+        color_continuous_scale='Tealgrn'
     )
 
     # 4. Formázás a cyberpunk témához
@@ -1106,10 +1086,9 @@ def update_treemap(surfaces, series, courts, start_date, end_date):
             showgrid=False,
             tickfont=dict(size=11)
         ),
-        coloraxis_showscale=False, # Színskála elrejtése a tisztább kinézetért
+        coloraxis_showscale=False, 
         margin=dict(l=10, r=10, t=10, b=10)
     )
-    # --- MÓDOSÍTÁS VÉGE ---
 
     return fig
 
@@ -1192,7 +1171,13 @@ def update_odds_distribution_histogram(selected_category):
                 size=0.1
             ),
             marker_color=color,
-            opacity=0.6,
+            opacity=0.8, # MÓDOSÍTVA: 0.8-ra növelve, hogy "stacked" módban ne legyen túl halvány
+            marker=dict(
+                line=dict(
+                    width=1,
+                    color='rgba(255, 255, 255, 0.5)'
+                )
+            ),
             hovertemplate=f'<b>{selected_category}:</b> {cat}<br><b>Odds Range:</b> %{{x}}<br><b>Count:</b> %{{y}}<extra></extra>'
         ))
     
@@ -1203,7 +1188,8 @@ def update_odds_distribution_histogram(selected_category):
         font=dict(color='#ffffff'),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0.1)',
-        barmode='overlay',
+        barmode='stack', 
+        bargap=0.05,
         showlegend=True,
         legend=dict(
             orientation="h",
@@ -1229,7 +1215,7 @@ def update_odds_distribution_histogram(selected_category):
      Input('year-slicer', 'value')]
 )
 def update_timeline(player_name, selected_year):
-    if not player_name or not selected_year or df.empty:
+    if not player_name or not selected_year:
         return {}
 
     player_df = df[
@@ -1247,12 +1233,10 @@ def update_timeline(player_name, selected_year):
             }
         }
 
-    # --- MÓDOSÍTÁS KEZDETE: Gantt diagram javítása ---
     # 1. Rendezés dátum szerint, hogy az idővonal logikus legyen
     player_df = player_df.sort_values(by='Date')
 
     # 2. A tornák kinyerése a helyes időrendben (unique() megőrzi a sorrendet a rendezés után)
-    # FONTOS JAVÍTÁS: Átalakítás listává (.tolist()), mert a Dash JSON szerializálója nem szereti a NumPy tömböt!
     ordered_tournaments = player_df['Tournament'].unique().tolist() 
 
     player_df['Outcome'] = player_df.apply(
@@ -1272,10 +1256,8 @@ def update_timeline(player_name, selected_year):
         color_discrete_map={'Win': '#10b981', 'Loss': '#ef4444'},
         title=f"Tournament Performance of {player_name} in {selected_year}",
         hover_data=['Date', 'Round', 'Score'],
-        # 3. Itt mondjuk meg a Plotly-nak, hogy milyen sorrendben jelenítse meg a tornákat az Y-tengelyen
         category_orders={'Tournament': ordered_tournaments} 
     )
-    # --- MÓDOSÍTÁS VÉGE ---
     
     fig.update_layout(
         xaxis_title=None, # Címke eltávolítva
@@ -1285,10 +1267,9 @@ def update_timeline(player_name, selected_year):
         plot_bgcolor='rgba(0,0,0,0.1)',
         font=dict(color='#ffffff'),
         height=600, # Magasság növelése a jobb olvashatóságért
-        # --- ÚJ MÓDOSÍTÁS: Y-TENGELY KÉNYSZERÍTÉSE ---
         yaxis=dict(
-            dtick=1,        # Ez kényszeríti, hogy minden sorhoz legyen címke (ne rejtse el)
-            automargin=True # Segít, hogy a hosszú nevek ne lógjanak le
+            dtick=1, 
+            automargin=True 
         )
     )
 
@@ -1299,7 +1280,7 @@ def update_timeline(player_name, selected_year):
     [Input('player-slicer', 'value')]
 )
 def update_radar(player_name):
-    if not player_name or df.empty:
+    if not player_name:
         return {}
 
     player_df = df[(df['Player_1'] == player_name) | (df['Player_2'] == player_name)].copy()
@@ -1349,9 +1330,6 @@ def update_radar(player_name):
     return fig
 
 def create_odds_time_series(player1, player2):
-    if df.empty:
-        return {}
-    
     h2h = df[
         ((df["Player_1"] == player1) & (df["Player_2"] == player2)) |
         ((df["Player_1"] == player2) & (df["Player_2"] == player1))
@@ -1416,7 +1394,7 @@ def create_odds_time_series(player1, player2):
     [Input('player-slicer', 'value')]
 )
 def update_player_kpis(player_name):
-    if not player_name or df.empty:
+    if not player_name:
         return []
 
     player_df = df[(df['Player_1'] == player_name) | (df['Player_2'] == player_name)].copy()
@@ -1505,7 +1483,7 @@ def update_player_kpis(player_name):
      Input('player2-slicer', 'value')]
 )
 def update_1v1_comparison(player1, player2):
-    if not player1 or not player2 or df.empty:
+    if not player1 or not player2:
         return html.Div("Please select two players to compare.", 
                         style={'color': '#00fff2', 'textAlign': 'center', 'padding': '20px'})
 
@@ -1815,6 +1793,7 @@ def update_1v1_comparison(player1, player2):
             )
         ]),
     ])
+])
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
