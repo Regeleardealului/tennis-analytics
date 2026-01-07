@@ -58,5 +58,3 @@ If you want to run this project on your local machine:
 4.  Open your browser and navigate to `http://127.0.0.1:8050/`.
 
 ---
-
-**Note:** The data used in this dashboard covers ATP matches from 2000 to 2023.
