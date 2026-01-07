@@ -29,6 +29,7 @@ df['Year'] = df['Date'].dt.year
 for col in ['Odd_1', 'Odd_2']:
     df[col] = pd.to_numeric(df[col], errors='coerce')
 
+# --- Adatok intelligens pótlása (Random Odds) ---
 valid_odds_1 = df[df['Odd_1'] > 0]['Odd_1']
 valid_odds_2 = df[df['Odd_2'] > 0]['Odd_2']
 
@@ -81,6 +82,7 @@ app = dash.Dash(
     suppress_callback_exceptions=True
 )
 
+# --- FONTOS: Ez kell a Render deployhoz ---
 server = app.server 
 
 # Add custom CSS
@@ -1043,12 +1045,14 @@ def update_treemap(surfaces, series, courts, start_date, end_date):
                 'font': {'color': '#ffffff'}
             }
         }
+        
+    # --- MÓDOSÍTÁS KEZDETE: Horizontális Sávdiagram (Bar Chart) ---
     
     # 1. Csoportosítás győztes szerint és számolás
     player_wins = filtered_df['Winner'].value_counts().reset_index()
     player_wins.columns = ['Winner', 'Wins']
     
-    # 2. TOP 15 player
+    # 2. TOP 15 játékos kiválasztása és rendezés (növekvő sorrendbe, hogy a diagramon felül legyen a legtöbb)
     player_wins = player_wins.head(15).sort_values('Wins', ascending=True)
     
     # 3. Bar Chart létrehozása
@@ -1056,10 +1060,10 @@ def update_treemap(surfaces, series, courts, start_date, end_date):
         player_wins,
         x='Wins',
         y='Winner',
-        orientation='h',  
-        text='Wins',     
-        color='Wins',     
-        color_continuous_scale='Tealgrn'
+        orientation='h',  # Horizontális elrendezés
+        text='Wins',      # Érték kiírása a sávra
+        color='Wins',     # Színezés érték alapján
+        color_continuous_scale='Tealgrn' # Téma szerinti cián/zöldes skála
     )
 
     # 4. Formázás a cyberpunk témához
@@ -1086,9 +1090,10 @@ def update_treemap(surfaces, series, courts, start_date, end_date):
             showgrid=False,
             tickfont=dict(size=11)
         ),
-        coloraxis_showscale=False, 
+        coloraxis_showscale=False, # Színskála elrejtése a tisztább kinézetért
         margin=dict(l=10, r=10, t=10, b=10)
     )
+    # --- MÓDOSÍTÁS VÉGE ---
 
     return fig
 
@@ -1188,7 +1193,7 @@ def update_odds_distribution_histogram(selected_category):
         font=dict(color='#ffffff'),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0.1)',
-        barmode='stack', 
+        barmode='stack', # MÓDOSÍTVA: 'overlay'-ről 'stack'-re, így egymásra épülnek!
         bargap=0.05,
         showlegend=True,
         legend=dict(
@@ -1233,10 +1238,12 @@ def update_timeline(player_name, selected_year):
             }
         }
 
+    # --- MÓDOSÍTÁS KEZDETE: Gantt diagram javítása ---
     # 1. Rendezés dátum szerint, hogy az idővonal logikus legyen
     player_df = player_df.sort_values(by='Date')
 
     # 2. A tornák kinyerése a helyes időrendben (unique() megőrzi a sorrendet a rendezés után)
+    # FONTOS JAVÍTÁS: Átalakítás listává (.tolist()), mert a Dash JSON szerializálója nem szereti a NumPy tömböt!
     ordered_tournaments = player_df['Tournament'].unique().tolist() 
 
     player_df['Outcome'] = player_df.apply(
@@ -1256,8 +1263,10 @@ def update_timeline(player_name, selected_year):
         color_discrete_map={'Win': '#10b981', 'Loss': '#ef4444'},
         title=f"Tournament Performance of {player_name} in {selected_year}",
         hover_data=['Date', 'Round', 'Score'],
+        # 3. Itt mondjuk meg a Plotly-nak, hogy milyen sorrendben jelenítse meg a tornákat az Y-tengelyen
         category_orders={'Tournament': ordered_tournaments} 
     )
+    # --- MÓDOSÍTÁS VÉGE ---
     
     fig.update_layout(
         xaxis_title=None, # Címke eltávolítva
@@ -1267,9 +1276,10 @@ def update_timeline(player_name, selected_year):
         plot_bgcolor='rgba(0,0,0,0.1)',
         font=dict(color='#ffffff'),
         height=600, # Magasság növelése a jobb olvashatóságért
+        # --- ÚJ MÓDOSÍTÁS: Y-TENGELY KÉNYSZERÍTÉSE ---
         yaxis=dict(
-            dtick=1, 
-            automargin=True 
+            dtick=1,        # Ez kényszeríti, hogy minden sorhoz legyen címke (ne rejtse el)
+            automargin=True # Segít, hogy a hosszú nevek ne lógjanak le
         )
     )
 
@@ -1793,7 +1803,6 @@ def update_1v1_comparison(player1, player2):
             )
         ]),
     ])
-])
 
 if __name__ == '__main__':
     app.run(debug=False)
